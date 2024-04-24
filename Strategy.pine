@@ -1,0 +1,67 @@
+//@version=5
+strategy('BB + ATR + MA strategy', overlay =true, initial_capital = 10000)
+
+// Bolinger band
+bb_length = input.int(14, title ='length')
+bb_stddev = input.float(1.9, title = 'standard deviation')
+[MA,upper, lower]  = ta.bb(close, bb_length, bb_stddev )
+
+plot(upper, color = color.green)
+plot(lower, color = color.green)
+
+buy_condition_bb = ta.crossover(close, upper)
+sell_condition_bb = ta.crossunder(close, lower)
+
+//trend filter
+MA_period = input.int(300, title ='period' )
+plot(ta.sma(close, MA_period), color = color.aqua )
+buy_condition_MA = close > ta.ema(close, MA_period)
+sell_condition_MA = close < ta.ema(close, MA_period)
+
+//volatility filter
+atr_period = input.int(14, title = 'ATR')
+atr = ta.atr(atr_period)
+plot(atr, color =color.blue)
+buy_sell_condition_atr = atr > 55
+
+
+// condition
+buy_condition = buy_condition_bb and buy_condition_MA and buy_sell_condition_atr
+sell_condition = sell_condition_bb and sell_condition_MA and buy_sell_condition_atr
+
+//signal
+if buy_condition
+    strategy.entry('long', strategy.long)
+
+if sell_condition
+    strategy.entry('Short', strategy.short)
+
+close_long = sell_condition_bb
+close_short = buy_condition_bb
+
+if close_long
+    strategy.close('Long')
+if close_short
+    strategy.close('Short')
+
+
+//stoploss
+trail_stop_percent = input.float(1, title = 'Trailing Stop %')
+trail_offset_percent = input.float(0.5, title = 'Trailing offset %')
+trail_stop_tick = trail_stop_percent*(close/100)
+trail_offset_tick = trail_offset_percent*(close/100)
+
+sl_percent = input.float(2, title = 'SL')
+tp_percent = input.float(6, title = 'TP')
+
+long_sl_price = strategy.position_avg_price*(1 - sl_percent/100)
+long_tp_price = strategy.position_avg_price*(1 + tp_percent/100)
+short_sl_price = strategy.position_avg_price*(1 + sl_percent/100)
+short_tp_price = strategy.position_avg_price*(1 - tp_percent/100)
+
+// trail_point after reaching the defined percentage the trail offset starts and trail offset is stop order placed at defined trail offset percentage
+
+strategy.exit('Long exit', stop = long_sl_price, limit = long_tp_price, trail_points = trail_stop_tick, trail_offset = trail_offset_tick )
+strategy.exit('Short exit', stop = short_sl_price, limit =short_tp_price, trail_points = trail_stop_tick, trail_offset = trail_offset_tick )
+
+// for trail offset and trail points
